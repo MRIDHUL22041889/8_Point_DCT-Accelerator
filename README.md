@@ -2,13 +2,12 @@
 
 ## Overview
 
-This repository contains a Verilog implementation of a pipelined hardware accelerator for the 8-point 1D Discrete Cosine Transform (DCT-II). The design is optimized for ASIC implementation and targets high throughput using a 4-stage pipeline, Canonical Signed Digit (CSD) multipliers, and a simple control/status register (CSR) interface. A testbench is included for functional verification and simulation.
+This repository contains a Verilog implementation of a pipelined hardware accelerator for the 8-point 1D Discrete Cosine Transform (DCT-II). The design is optimized for ASIC implementation and targets high throughput using a 4-stage pipeline, Canonical Signed Digit (CSD) multipliers, and a simple handshake interface. A testbench is included for functional verification and simulation.
 
 ## Key features
 
 - 4-stage pipelined 1D 8-point DCT core
 - Streaming valid/ready handshake (AXI-like) for input/output flow control
-- CSR-based control and status registers for start/stop and configuration
 - CSD-based constant multipliers for hardware-efficient implementation
 - Testbench for behavioral verification and simulation
 
