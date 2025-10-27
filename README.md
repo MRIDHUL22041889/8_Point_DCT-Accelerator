@@ -53,6 +53,13 @@ The controller implements pipeline stall behavior: when data_out_valid is high a
 
 The core is split into 4 pipeline stages. Each stage performs part of the DCT arithmetic and stores intermediate results in pipeline registers. This organization enables a sustained throughput of one input per clock cycle after pipeline fill (latency = number of stages). The project uses CSD multipliers to reduce area and power while maintaining precision for constant multiplications.
 
+## Test Run
+The input given is [10,20,30,40,50,60,70,80]
+The expected output is [ 358.92740213 -181.67350924    0.          -18.99142539    0.
+   -5.66546189    0.    -1.4298055 ].
+
+The obtained output from the waveform must be scaled properly which gives [360 -182.2 0 -19.05 0 -5.683 0 -1.42] as they are in Q1.15 format. So we have an error of about 0.21 percentage
+![Waveform Obtained](image.png)
 
 ## Testing and verification
 
