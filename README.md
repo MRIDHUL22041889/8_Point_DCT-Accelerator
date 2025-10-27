@@ -1,108 +1,103 @@
-#  Pipelined 8-Point 1D DCT Hardware Accelerator
+# Pipelined 8-Point 1D DCT Hardware Accelerator
 
-##  Overview
-This project implements a **pipelined hardware accelerator** for the **8-point 1D Discrete Cosine Transform (DCT)** in **Verilog**.  
-It includes 4 computation stages with pipeline registers, control logic using CSR registers, and a testbench for simulation.  
-The design is intended for **ASIC implementation**.
+Overview
 
----
+This repository contains a Verilog implementation of a pipelined hardware accelerator for the 8-point 1D Discrete Cosine Transform (DCT-II). The design is optimized for ASIC implementation and targets high throughput using a 4-stage pipeline, Canonical Signed Digit (CSD) multipliers, and a simple control/status register (CSR) interface. A testbench is included for functional verification and simulation.
 
-## Algoorithm 
-## 📘 Overview
-The **Discrete Cosine Transform (DCT-II)** is one of the most important transforms used in **image and video compression**, forming the core of standards such as **JPEG**, **MPEG**, and **HEVC**.
+Key features
 
-It converts image data from the **spatial domain** (pixel intensities) into the **frequency domain**, where most of the image’s visual information is concentrated in fewer coefficients — allowing efficient compression with minimal quality loss.
+- 4-stage pipelined 1D 8-point DCT core
+- Streaming valid/ready handshake (AXI-like) for input/output flow control
+- CSR-based control and status registers for start/stop and configuration
+- CSD-based constant multipliers for hardware-efficient implementation
+- Testbench for behavioral verification and simulation
 
----
+Why this design
 
-## 🧩 What is DCT-II?
+The DCT-II is widely used in image and video compression (e.g., JPEG, MPEG, HEVC). By transforming spatial-domain pixel values into frequency-domain coefficients, the DCT concentrates most of the signal energy in a small number of low-frequency coefficients — enabling efficient compression. A pipelined hardware accelerator provides low-latency, high-throughput DCT computation suitable for ASIC and FPGA integration.
 
-For a 1D signal \( x[n] \) of length \( N \):
+Design summary
 
-\[
-X[k] = \sum_{n=0}^{N-1} x[n] \cos\left[\frac{\pi}{N}\left(n + \frac{1}{2}\right)k\right]
-\]
+- Transform: 1D DCT-II, N = 8
+- Pipeline stages: 4 (staged arithmetic with pipeline registers)
+- Interface: Streaming valid/ready handshake (data_in_valid, data_in_ready, data_out_valid, data_out_ready)
+- Control: CSR registers for configuration and status monitoring
+- Target: ASIC (suitable for FPGA prototyping)
 
-for \( k = 0, 1, 2, ..., N-1 \).
+Mathematical definition (1D DCT-II)
 
-The **2D DCT-II**, used for images, is obtained by applying the 1D DCT twice — first along rows, then along columns.
+For a 1D signal x[n] of length N:
 
----
+X[k] = sum_{n=0}^{N-1} x[n] * cos(pi/N * (n + 1/2) * k),  for k = 0..N-1
 
-## 🖼️ Why Transform Images?
+(The 2D DCT is obtained by applying the 1D DCT along rows and then columns.)
 
-Images have **spatial redundancy** — nearby pixels often have similar values.  
-The DCT helps by concentrating most of the image’s energy into **low-frequency coefficients**:
+Repository layout
 
-- **Low frequencies** → smooth areas (backgrounds)
-- **High frequencies** → edges and textures
+- /rtl  - Verilog RTL sources for the DCT core, controller, and support modules
+- /tb   - Testbench and stimulus files used for simulation
+- /docs - (optional) design notes and diagrams
+- README.md - This document
 
-This makes it possible to:
-- Store fewer coefficients
-- Discard high-frequency details that are less perceptible to the human eye
+Getting started
 
----
+Requirements
 
-## ⚙️ How DCT-II Is Used in Image Compression (JPEG Example)
+- Verilog simulator (Icarus Verilog, Verilator, QuestaSim, or similar)
+- Make (optional) for running provided scripts
+- Python (optional) for any testbench utilities or data generation
 
-### 1️⃣ Divide Image into Blocks
-The image is divided into **8×8 pixel blocks**.
+Quick simulation (example using Icarus Verilog)
 
-### 2️⃣ Apply 2D DCT-II
-Each block is transformed into frequency coefficients:
+1. Install Icarus Verilog (if not installed):
+   - Ubuntu/Debian: sudo apt-get install iverilog vvp
 
-\[
-C(u,v) = \frac{1}{4}\alpha(u)\alpha(v)\sum_{x=0}^{7}\sum_{y=0}^{7}f(x,y)\cos\left[\frac{(2x+1)u\pi}{16}\right]\cos\left[\frac{(2y+1)v\pi}{16}\right]
-\]
+2. From the repository root, run (example):
+   iverilog -o tb_dct.vvp tb/*.v rtl/*.v && vvp tb_dct.vvp
 
-where \( f(x,y) \) is the pixel value and \( C(u,v) \) is the DCT coefficient.
+Note: Exact file names and commands may vary depending on the testbench. Check /tb for a run script or Makefile.
 
-### 3️⃣ Quantization
-Each DCT coefficient is divided by a **quantization matrix** and rounded:
+Interfaces and handshake
 
-- Low frequencies → small quantization step (retain detail)
-- High frequencies → large quantization step (discard small variations)
+This core is built around a streaming handshake to decouple producer/consumer timing from internal computation:
 
-This step achieves **most of the compression**.
+- data_in_valid (input): Indicates new input data is available from the producer
+- data_in_ready (output): Asserts when the DCT core can accept the next input
+- data_out_valid (output): Asserts when output data is valid and stable
+- data_out_ready (input): Driven by the downstream consumer to accept output
 
-### 4️⃣ Entropy Coding
-The quantized coefficients are encoded efficiently using **Run-Length Encoding** and **Huffman Coding**.
+The controller implements pipeline stall behavior: when data_out_valid is high and data_out_ready is low, the pipeline and output registers are frozen (no progress) to maintain data coherency.
 
----
+Pipelined architecture
 
-# ⚙️ Pipelined DCT Controller Architecture
+The core is split into 4 pipeline stages. Each stage performs part of the DCT arithmetic and stores intermediate results in pipeline registers. This organization enables a sustained throughput of one input per clock cycle after pipeline fill (latency = number of stages). The project uses CSD multipliers to reduce area and power while maintaining precision for constant multiplications.
 
-## 🧠 Overview
-This module implements a **4-stage pipelined architecture** for computing the **1D Discrete Cosine Transform (DCT)** efficiently in hardware.  
-The system is designed around a **streaming handshake interface** and achieves high throughput by **decoupling input/output flow control** from the internal computation pipeline.
+Configuration and control
 
-The design includes:
-- A **4-stage pipelined DCT core** using **Canonical Signed Digit (CSD)** multiplication
-- A **controller** that manages valid/ready handshakes and pipeline stalls
-- Efficient **data forwarding and output registration** logic to maintain stability during stalls
+Control and status registers (CSR) provide a simple control plane to start/stop operation, poll status, and configure optional behavior. Check the CSR module in /rtl to see register offsets and control bits.
 
----
+Testing and verification
 
-### 🔄 Handshake Flow
-The controller uses **AXI-like valid/ready signaling** for synchronization:
+- A behavioral testbench is included in /tb. Use it to run vectors and verify the functional correctness of the core.
+- Recommended verification steps:
+  1. Run the testbench and check that the output matches a golden-model DCT (software reference).
+  2. Run corner-case vectors (all zeros, single non-zero input, maximum amplitudes).
+  3. Add randomized stimulus and run through line-by-line comparison with a reference implementation (Python/NumPy).
 
-| Signal | Direction | Description |
-|---------|------------|-------------|
-| `data_in_valid` | Input | Indicates new input data is available |
-| `data_in_ready` | Output | Indicates DCT can accept new data |
-| `data_out_valid` | Output | Output data is valid |
-| `data_out_ready` | Input | External module ready to accept result |
+Contributing
 
-**Pipeline stall** occurs if `data_out_valid` is high but `data_out_ready` is low.  
-This stall signal freezes both the DCT pipeline and output registers to maintain data coherency.
+Contributions, bug reports, and improvements are welcome. Please open an issue or submit a pull request with a clear description of the change and related testbenches or regression results.
 
----
+License
 
+This repository does not include a license by default. If you intend to make the project public, consider adding an OSI-approved license (for example, MIT, Apache-2.0, or BSD-3-Clause) and include a LICENSE file.
 
-## ⚡ 4-Stage DCT Pipeline
+Contact
 
-
-
-This structure ensures **one new input can be accepted each clock cycle** (throughput = 1 block/cycle after pipeline fill).
+For questions about this implementation, open an issue or contact the repository owner.
 
 ---
+
+Changelog
+
+- 2025-10-27: README rewritten and reorganized for clarity and usability.
